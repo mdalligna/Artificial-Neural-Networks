@@ -1,0 +1,87 @@
+int sketchH = 500;
+int sketchW = 500;
+PVector eye;
+PVector center;
+
+SOM som;
+
+PointCloud pointCloud;
+PVector ptClRandomV;
+
+float maxIterations;
+int iter;
+
+int dPanel;
+PFont font;
+
+void setup()
+{
+  dPanel = 50;
+  size(500, 550, P3D);
+  eye = new PVector(0, sketchW/2, sketchH/2); 
+  center = new PVector(0, 0, 0);
+
+  // initialize the cloud of points
+  pointCloud = new PointCloud();
+
+  //  parses the txt file ind set the PVectors to this positions 
+  pointCloud.parse();
+
+  //initiates the random point chosen in the trainig data (point cloud set)
+  ptClRandomV = new PVector();
+
+  // number of times SOM in run/initialize interations
+  maxIterations = 100000;
+
+  // initialize kohonen as 2d array of PVectors set to a random position
+  som = new SOM(5, 5, 3);
+  iter = 1;
+    
+  font = loadFont("Century-12.vlw");    
+  textFont(font);
+  textMode(MODEL);
+  textAlign(LEFT);
+    
+}
+
+void draw()
+{    
+  background(0);  
+  lights();
+  camera(eye.x, eye.y, eye.z, center.x, center.y, center.z, 0, 0, -1);
+
+  //rotate object
+  pushMatrix();
+  rotateZ(0.01*frameCount);
+
+  //trains the network with a random vector of training set
+  for (int i = 0; i < 200; i++)
+  {
+    // choose a member of the point cloud at random
+    ptClRandomV = pointCloud.randomV();
+    if (iter < maxIterations)
+    {
+      som.train(iter, ptClRandomV);
+      iter ++;
+    }
+  }
+
+  // draws point cloud
+  pointCloud.render();
+
+  // draws kohonen
+  som.render();
+  popMatrix();
+  
+  
+    fill(255);
+  //textFont(font12);
+  text("BMU Radius:   "+ som.radiusDecay, -100, 115);
+  text("Learning: " + som.learnDecay, -100, 130);
+  text("Iteration " + iter + "/" + maxIterations, -100, 145);
+  
+  if (keyPressed)
+  {
+    setup();
+  }
+}
