@@ -1,0 +1,73 @@
+class PointCloud
+{
+  BufferedReader reader;
+  PVector [] pointCloud;
+
+  PointCloud()
+  {
+    // initialize reader to read from the point cloud file
+    reader = createReader("pointCloud12.txt");
+
+    // initialize an array of PVectors for the cloud of points
+    pointCloud = new PVector[25];
+  }
+
+  void parse()
+  {
+    // parses and maps the txt file to the screen
+    int counter = 0;
+    boolean isNull = false;
+    while(!isNull)
+    {
+      try
+      {
+        String line = reader.readLine();
+
+        if(line == null)    
+        {
+          //println("end");
+          isNull = true;
+        }
+        else 
+        {
+          String [] bits = splitTokens(line, "{,}");
+
+          float xPos = float(bits[0]);
+          float yPos = float(bits[1]);
+          float zPos = float(bits[2]);
+
+          float x = map(xPos, -15, 15, -sketchW/5, sketchW/5);
+          float y = map(yPos, -15, 15, -sketchH/5, sketchH/5);
+          float z = map(zPos, -15, 15, 0, sketchH/5);
+
+          pointCloud[counter] = new PVector(x, y, z);
+          counter++;
+        }
+      }
+      catch(IOException ie) {
+      }
+    }//while
+  }
+
+  PVector randomV()
+  {
+    // selects a random PVector in the point cloud to present to the SOM
+    int randomPt = int(random(pointCloud.length));
+    PVector randomPtCloud = pointCloud[randomPt];
+    return randomPtCloud;
+  }
+
+  void render()
+  {
+    //draws the point cloud onto the screen
+    for (int i = 0; i < pointCloud.length; i++)
+    {
+      pushMatrix();
+      translate(pointCloud[i].x, pointCloud[i].y, pointCloud[i].z);
+      noStroke();
+      fill(255, 0, 0);
+      sphere(3);
+      popMatrix();
+    }
+  }
+}
