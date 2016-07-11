@@ -1,0 +1,200 @@
+class SOM
+{
+  Node[][] nodes;
+  int mapWidth; //how many nodes in "x"
+  int mapHeight; //how many nodes in "y"
+  int inputDimension;
+  float timeConstant;
+  float radiusBMU;
+  float radiusDecay;
+  float learnRate = 0.07;
+  float learnDecay;
+
+  SOM(int w, int h, int n)
+  {
+    mapWidth = w;
+    mapHeight = h;
+    radiusBMU = (w + h) / 2;
+    inputDimension = n;
+    timeConstant = 0.8*maxIterations/log(radiusBMU);
+
+    // initial size of the training radius = bmu neighbourhood radius
+    radiusDecay = radiusBMU;
+
+    //initialize kohonen as a 2d array of pvectors
+    nodes = new Node[w][h];
+    for (int i = 0; i < w; i++)
+    {
+      for (int j = 0; j < h; j++)
+      {
+        nodes[i][j] = new Node(w, h, n);
+        nodes[i][j].x = i;
+        nodes[i][j].y = j;
+      }
+    }
+  }
+
+  void train(int iterationsCount, PVector trainV)
+  {
+    // radius and learning reduce with time
+    radiusDecay = radiusBMU * exp( -1 * iterationsCount / timeConstant);
+    learnDecay = learnRate * exp( -1 * iterationsCount / timeConstant);
+
+    //find the best matching unit
+    int [] index = BMU(trainV);
+    //BMU indexes
+    int x = index[0];
+    int y = index[1];
+
+
+    //scale BMU and neighburs
+    for (int i = 0; i < mapWidth; i++)
+    {
+      for (int j = 0; j < mapHeight; j++)
+      {
+        float d = dist(nodes[x][y].x, nodes[x][y].y, nodes[i][j].x, nodes[i][j].y);
+        // find influence
+        float influence = exp((-1*sq(d)) / (2*sq(radiusDecay)*iterationsCount));
+        if (d < radiusDecay)
+        {
+          //ajust weights
+          nodes[i][j].weight.add(PVector.mult(PVector.sub(trainV, nodes[i][j].weight), influence*learnDecay));
+        }
+      }
+    }
+  }
+
+  int  [] BMU(PVector _randomV)
+  {
+    float [] distance = new float[25];
+    int count = 0;
+    float closestD = 0;
+    int closestIndex[] = new int[2];
+
+    // loops through all the nodes to find the closest node to the
+    // chosen pt in the point cloud
+    for (int i = 0; i < mapWidth; i++)
+    {
+      for (int j = 0; j < mapHeight; j++)
+      {
+        distance[count] = myDist(_randomV.x, _randomV.y, _randomV.z, nodes[i][j].weight.x, nodes[i][j].weight.y, nodes[i][j].weight.z);
+        if (count == 0)
+        {
+          closestD = distance[count];
+          closestIndex[0] = i;
+          closestIndex[1] = j;
+        }
+        if (count != 0)
+        {
+          if (distance[count] < closestD)
+          {
+            closestD = distance[count];
+            closestIndex[0] = i;
+            closestIndex[1] = j;
+          }
+        }
+        count++;
+      }
+    }
+    return closestIndex;
+  }
+
+
+  float myDist (float x1, float y1, float z1, float x2, float y2, float z2)
+  {
+    float d = sqrt(sq(x2 - x1) + sq(y2 - y1) + sq(z2 - z1));
+    return d;
+  }
+
+  void render()
+  {
+    // draws kohonen net
+    for (int i = 0; i < mapWidth; i++)
+    {
+      for (int j = 0; j < mapHeight; j++)
+      {
+        pushMatrix();
+        translate(nodes[i][j].weight.x, nodes[i][j].weight.y, nodes[i][j].weight.z);
+        noStroke();
+        fill(255);
+        sphere(5);
+        popMatrix();
+      }
+    }
+    
+        stroke(255);
+        fill(255,100);
+        //noFill();
+    
+    for(int i = 0; i < mapWidth-1; i++) {
+      for(int j = 0; j < mapHeight-1; j++) {
+        
+       //FIRST PART 
+        beginShape(QUAD_STRIP);
+        if(PVector.dist(nodes[i][j].weight,nodes[i+1][j+1].weight)>PVector.dist(nodes[i][j+1].weight,nodes[i+1][j].weight)) {
+          vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z);
+          vertex(nodes[i+1][j].weight.x,nodes[i+1][j].weight.y,nodes[i+1][j].weight.z);
+          vertex(nodes[i][j+1].weight.x,nodes[i][j+1].weight.y,nodes[i][j+1].weight.z);
+          vertex(nodes[i+1][j+1].weight.x,nodes[i+1][j+1].weight.y,nodes[i+1][j+1].weight.z);
+        }
+        else {
+          vertex(nodes[i+1][j].weight.x,nodes[i+1][j].weight.y,nodes[i+1][j].weight.z);
+          vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z);
+          vertex(nodes[i+1][j+1].weight.x,nodes[i+1][j+1].weight.y,nodes[i+1][j+1].weight.z);
+          vertex(nodes[i][j+1].weight.x,nodes[i][j+1].weight.y,nodes[i][j+1].weight.z);
+        }
+        endShape();
+      }
+    }    
+      // SECOND PART    
+        for(int i = 0; i<mapWidth; i+=mapWidth-1) {
+      for(int j = 0; j < mapHeight-1; j++) {
+        beginShape(TRIANGLE_STRIP);
+        // This if loop performs the edge swap
+        if(PVector.dist(nodes[i][j].weight,nodes[i][mapHeight-2-j].weight)>PVector.dist(nodes[i][j+1].weight,nodes[i][mapHeight-1-j].weight)) {
+          vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z); 
+          vertex(nodes[i][mapHeight-1-j].weight.x,nodes[i][mapHeight-1-j].weight.y,nodes[i][mapHeight-1-j].weight.z);
+          vertex(nodes[i][j+1].weight.x,nodes[i][j+1].weight.y,nodes[i][j+1].weight.z);
+          vertex(nodes[i][mapHeight-2-j].weight.x,nodes[i][mapHeight-2-j].weight.y,nodes[i][mapHeight-2-j].weight.z);
+        }
+        else {
+          vertex(nodes[i][mapHeight-1-j].weight.x,nodes[i][mapHeight-1-j].weight.y,nodes[i][mapHeight-1-j].weight.z);
+          vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z);
+          vertex(nodes[i][mapHeight-2-j].weight.x,nodes[i][mapHeight-2-j].weight.y,nodes[i][mapHeight-2-j].weight.z);
+          vertex(nodes[i][j+1].weight.x,nodes[i][j+1].weight.y,nodes[i][j+1].weight.z);
+        }
+        endShape();
+      }
+    }
+    
+    
+        for(int j = 0; j<mapHeight; j+=mapHeight-1) {
+      for(int i = 0; i < mapWidth-1; i++) {
+        beginShape(TRIANGLE_STRIP);
+        // This if loop performs the edge swap
+        if(PVector.dist(nodes[i][j].weight,nodes[mapWidth-2-i][j].weight)>PVector.dist(nodes[i+1][j].weight,nodes[mapWidth-1-i][j].weight)) {
+          vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z);
+          vertex(nodes[mapWidth-1-i][j].weight.x,nodes[mapWidth-1-i][j].weight.y,nodes[mapWidth-1-i][j].weight.z);
+          vertex(nodes[i+1][j].weight.x,nodes[i+1][j].weight.y,nodes[i+1][j].weight.z);
+          vertex(nodes[mapWidth-2-i][j].weight.x,nodes[mapWidth-2-i][j].weight.y,nodes[mapWidth-2-i][j].weight.z);
+        }
+        else {
+          vertex(nodes[mapWidth-1-i][j].weight.x,nodes[mapWidth-1-i][j].weight.y,nodes[mapWidth-1-i][j].weight.z);
+          vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z);
+          vertex(nodes[mapWidth-2-i][j].weight.x,nodes[mapWidth-2-i][j].weight.y,nodes[mapWidth-2-i][j].weight.z);
+          vertex(nodes[i+1][j].weight.x,nodes[i+1][j].weight.y,nodes[i+1][j].weight.z);
+        }
+        endShape();
+      }
+    }
+    
+   // THIRD PART
+    beginShape(TRIANGLE_STRIP);
+    for(int i = 0; i < mapWidth; i+=mapWidth-1) {
+      for(int j = 0; j < mapHeight; j+=mapHeight-1) {
+        vertex(nodes[i][j].weight.x,nodes[i][j].weight.y,nodes[i][j].weight.z);
+      }
+    }
+    endShape();
+  }
+}
